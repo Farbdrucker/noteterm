@@ -46,7 +46,7 @@ class Editor(Widget):
         if event.key == "ctrl+h":
             await self._delete()
         elif event.key in (".", ",", " "):
-            await self._write(" ")
+            await self._write(event.key)
         else:
             await self.dispatch_key(event)
         self.typing = not self.typing
