@@ -1,19 +1,17 @@
-from dataclasses import dataclass
-from functools import partial
 import os
 import string
-import sys
 import time
-from typing import Callable
 import uuid
-from rich.console import RenderableType, Console
+from dataclasses import dataclass
+from functools import partial
+
 from pygments.lexers import get_lexer_by_name
+from rich.console import RenderableType, Console
+from rich.markdown import Markdown
 from rich.syntax import Syntax
 from rich.traceback import Traceback
-from rich.markdown import Markdown
 from textual.app import App
 from textual.widgets import Header, Footer, FileClick, ScrollView, DirectoryTree
-import asyncio
 
 # TODO
 # 1. switching focus with tab
@@ -23,14 +21,12 @@ import asyncio
 # 5. vim key bindings
 
 
-ROOT = "/Users/lukassanner/Documents/Private/notes"
+ROOT = "./"
 NAMING_SCHEME = "{time}_{head}{uuid}.md"
 
 
 def readable_time(t_epoch) -> str:
-    return (
-        time.strftime("%y-%m-%dT%H-%M", time.localtime(t_epoch))
-    )
+    return time.strftime("%y-%m-%dT%H-%M", time.localtime(t_epoch))
 
 
 example_md = """Start by entering a title
@@ -48,7 +44,7 @@ class File:
 
     __fname: str = None
 
-    def set_fname(self, name: str)->None:
+    def set_fname(self, name: str) -> None:
         self.__fname = name
 
     @property
@@ -60,7 +56,11 @@ class File:
             rtime = readable_time(self.timestamp)
 
             header, divider = self.content.split("\n")[:2]
-            head = header.replace(' ', '-') + "_" if (divider.startswith("==") and header != "") else None
+            head = (
+                header.replace(" ", "-") + "_"
+                if (divider.startswith("==") and header != "")
+                else None
+            )
 
             self.set_fname(NAMING_SCHEME.format(time=rtime, head=head, uuid=self.uuid))
         return self.fname
@@ -75,18 +75,18 @@ def load_file(path: str) -> File:
     # try to decode uuid
 
     fname = os.path.basename(path)
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         content = f.readlines()
-    content = ''.join(content)
+    content = "".join(content)
 
-    file = File(timestamp=0, content=content, uuid='-')
+    file = File(timestamp=0, content=content, uuid="-")
     file.set_fname(fname)
     return file
 
 
 class Cursor:
     def __repr__(self):
-        return '█'
+        return "█"
 
 
 cursor = Cursor()
@@ -115,22 +115,24 @@ class MyApp(App):
         await self.bind("enter", "write_enter", show=False)
         setattr(self, f"action_write_enter", partial(self._write, "\n"))
 
-        await self.bind(' ', "write_space")
+        await self.bind(" ", "write_space")
         setattr(self, "action_write_space", partial(self._write, " "))
 
         await self.bind("ctrl+h", "delete_char", show=False)
         setattr(self, "action_delete_char", self._delete)
         #        await self.bind("h", "write_h",show=True)
-        characters = string.ascii_lowercase + string.ascii_uppercase + string.punctuation
+        characters = (
+            string.ascii_lowercase + string.ascii_uppercase + string.punctuation
+        )
 
         for char in characters:
             await self.bind(char, f"write_{char}", show=False)
             setattr(self, f"action_write_{char}", partial(self._write, char))
 
-        await self.bind('.', "write_fullstops", show=False)
+        await self.bind(".", "write_fullstops", show=False)
         setattr(self, f"action_write_fullstops", partial(self._write, "."))
 
-        await self.bind(',', "write_comma", show=False)
+        await self.bind(",", "write_comma", show=False)
         setattr(self, f"action_write_comma", partial(self._write, ","))
 
     async def on_mount(self) -> None:
@@ -173,13 +175,14 @@ class MyApp(App):
         self.app.sub_title = self.file.fname
 
         content = self.file.content + str(cursor)
-        self.syntax = Syntax(content,
-                             lexer=get_lexer_by_name("md"),
-                             line_numbers=True,
-                             word_wrap=True,
-                             indent_guides=True,
-                             theme="monokai",
-                             )
+        self.syntax = Syntax(
+            content,
+            lexer=get_lexer_by_name("md"),
+            line_numbers=True,
+            word_wrap=True,
+            indent_guides=True,
+            theme="monokai",
+        )
         await self.editor.update(self.syntax)
 
         await self.viewer.update(Markdown(self.file.content))
@@ -201,9 +204,9 @@ class MyApp(App):
         await self._update()
 
     async def action_save(self) -> None:
-        fname = self.file.fname.replace('/', '-')
+        fname = self.file.fname.replace("/", "-")
 
-        with open(os.path.join(ROOT, fname), 'w') as f:
+        with open(os.path.join(ROOT, fname), "w") as f:
             f.writelines(self.file.content)
 
 
