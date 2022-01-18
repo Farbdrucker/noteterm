@@ -38,12 +38,14 @@ class Editor(Widget):
             indent_guides=True,
             theme="monokai",
         )
-        return Panel(syntax,title="Editor", border_style="red" if self.focused else "white")
+        return Panel(
+            syntax, title="Editor", border_style="red" if self.focused else "white"
+        )
 
     async def on_key(self, event: events.Key) -> None:
         if event.key == "ctrl+h":
             await self._delete()
-        elif event.key == " ":
+        elif event.key in (".", ",", " "):
             await self._write(" ")
         else:
             await self.dispatch_key(event)
@@ -61,7 +63,6 @@ class Editor(Widget):
     async def focus(self):
         self.focused = not self.focused
         await super().focus()
-
 
 
 if __name__ == "__main__":
