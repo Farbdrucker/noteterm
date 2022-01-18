@@ -8,6 +8,7 @@ from rich.syntax import Syntax
 from textual import events
 from textual.app import App
 from textual.reactive import Reactive
+from textual.view import View
 from textual.widget import Widget
 from textual.widgets import Header, ScrollView, Footer
 
@@ -31,7 +32,7 @@ class Editor(Widget):
 
     def render(self) -> ScrollView:
         syntax = Syntax(
-            self.text,
+            self.text + '█',
             lexer=get_lexer_by_name("md"),
             line_numbers=True,
             word_wrap=True,
@@ -39,7 +40,7 @@ class Editor(Widget):
             theme="monokai",
         )
         return Panel(
-            syntax, title="Editor", border_style="red" if self.focused else "white"
+            syntax, title="Editor", border_style="white" if self.focused else "gray"
         )
 
     async def on_key(self, event: events.Key) -> None:
