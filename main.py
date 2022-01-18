@@ -11,13 +11,14 @@ from rich.markdown import Markdown
 from rich.syntax import Syntax
 from rich.traceback import Traceback
 from textual.app import App
+from textual.widget import Widget
 from textual.widgets import Header, Footer, FileClick, ScrollView, DirectoryTree
 
 # TODO
 # 1. switching focus with tab
 # 2. writing white space
 # 3. toggle side bar
-# 4. navigation with arrow keys
+# 4. navigation with arrow keys, widget?
 # 5. vim key bindings
 
 
@@ -25,8 +26,16 @@ ROOT = "./"
 NAMING_SCHEME = "{time}_{head}{uuid}.md"
 
 
-def readable_time(t_epoch) -> str:
-    return time.strftime("%y-%m-%dT%H-%M", time.localtime(t_epoch))
+def format_time(formatting: str, t_epoch: float = None) -> str:
+    return time.strftime(formatting, time.localtime(t_epoch))
+
+
+def readable_time(t_epoch: float = None) -> str:
+    return format_time("%y-%m-%dT%H-%M", t_epoch or time.time())
+
+
+def hhmm(t_epoch: float = None) -> str:
+    return format_time("%y-%m-%dT%H-%M", t_epoch or time.time())
 
 
 example_md = """Start by entering a title
@@ -84,12 +93,42 @@ def load_file(path: str) -> File:
     return file
 
 
+@dataclass
+class Position:
+    line: int
+    row: int
+
+
+@dataclass
 class Cursor:
+    position: Position
+
     def __repr__(self):
         return "█"
 
 
-cursor = Cursor()
+def get_cursor(content: str):
+    lines = content.split("\n")
+    num_lines = len(lines)
+    row = len(lines[-1])
+
+    return Cursor(Position(num_lines, row))
+
+
+def write_at_position(content: str, new_content: str, position: Position) -> str:
+    """
+
+    """
+    lines = content.split("\n")
+    current_line = lines[position.line]
+
+    head, tail = current_line[:position.row], current_line[position.row]
+    current_line = head + new_content + tail
+    content = '\n'.join(lines[:position.line - 1] + [current_line] + lines[position.line:])
+    return content
+
+
+
 
 
 class MyApp(App):
@@ -99,6 +138,7 @@ class MyApp(App):
         """Sent before going in to application mode."""
         self.console = Console()
         self.file = new_file()
+        self.cusor = get_cursor(self.file.content)
 
         # Bind our basic keys
         await self.bind("ctrl+b", "view.toggle('editor')", "Toggle editor")
@@ -115,14 +155,11 @@ class MyApp(App):
         await self.bind("enter", "write_enter", show=False)
         setattr(self, f"action_write_enter", partial(self._write, "\n"))
 
-        await self.bind(" ", "write_space")
-        setattr(self, "action_write_space", partial(self._write, " "))
-
         await self.bind("ctrl+h", "delete_char", show=False)
         setattr(self, "action_delete_char", self._delete)
         #        await self.bind("h", "write_h",show=True)
         characters = (
-            string.ascii_lowercase + string.ascii_uppercase + string.punctuation
+                string.ascii_lowercase + string.ascii_uppercase + '!"#$%&\'()*+-/:;<=>?@[\\]^_`{|}~'
         )
 
         for char in characters:
@@ -134,6 +171,9 @@ class MyApp(App):
 
         await self.bind(",", "write_comma", show=False)
         setattr(self, f"action_write_comma", partial(self._write, ","))
+
+        await self.bind(" ", "write_space")
+        setattr(self, "action_write_space", partial(self._write, " "))
 
     async def on_mount(self) -> None:
         """Call after terminal goes in to application mode"""
@@ -172,9 +212,9 @@ class MyApp(App):
         await self._update()
 
     async def _update(self) -> None:
-        self.app.sub_title = self.file.fname
+        # self.app.sub_title = self.file.fname
 
-        content = self.file.content + str(cursor)
+        content = write_at_position(self.file.content, str(self.cusor), self.cusor.position)
         self.syntax = Syntax(
             content,
             lexer=get_lexer_by_name("md"),
@@ -190,12 +230,8 @@ class MyApp(App):
     def __dchar(self, num) -> None:
         self.file.content = self.file.content[:-num]
 
-    def __add_cursor(self) -> None:
-        if self.file.content[-1] != str(cursor):
-            self.file.content += str(cursor)
-
     async def _write(self, text: str) -> None:
-        self.file.content += text
+        self.file.content = write_at_position(self.file.content, text, self.cusor.position)
         await self._update()
 
     async def _delete(self) -> None:
@@ -208,6 +244,24 @@ class MyApp(App):
 
         with open(os.path.join(ROOT, fname), "w") as f:
             f.writelines(self.file.content)
+
+        self.app.sub_title = f"{self.file.fname} [saved@{hhmm()}]"
+
+    async def action_new(self):
+        self.file = new_file()
+        await self._update()
+
+    async def action_move_cursor_up(self):
+        self.cusor.position.line -= 1
+
+    async def action_move_cursor_down(self):
+        self.cusor.position.line += 1
+
+    async def action_move_cursor_left(self):
+        self.cusor.position.row -= 1
+
+    async def action_move_cursor_right(self):
+        self.cusor.position.row += 1
 
 
 #    async def action_write_h(self):
